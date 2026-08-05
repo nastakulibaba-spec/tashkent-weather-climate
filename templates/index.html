@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Климатический прогноз</title>
+    <style>
+
+        @keyframes skyAnimation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+
+        @keyframes moveClouds {
+            0% { transform: translateX(-150%); }
+            100% { transform: translateX(250%); }
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(-45deg, #bae6fd, #e0f2fe, #f1f5f9, #7dd3fc);
+            background-size: 400% 400%;
+            animation: skyAnimation 15s ease infinite;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+        }
+
+
+        .clouds-container {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+
+        .cloud {
+            position: absolute;
+            background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.4) 60%, rgba(255,255,255,0) 100%);
+            border-radius: 50%;
+            filter: blur(15px);
+        }
+
+
+        .cloud-1 {
+            width: 450px;
+            height: 160px;
+            top: 10%;
+            left: 0;
+            animation: moveClouds 65s linear infinite;
+        }
+
+        .cloud-2 {
+            width: 300px;
+            height: 110px;
+            top: 40%;
+            left: 0;
+            animation: moveClouds 45s linear infinite;
+            animation-delay: -20s;
+        }
+
+        .cloud-3 {
+            width: 550px;
+            height: 200px;
+            bottom: 15%;
+            left: 0;
+            animation: moveClouds 85s linear infinite;
+            animation-delay: -40s;
+        }
+
+
+        .main-card {
+            background-color: rgba(248, 250, 252, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid #e2e8f0;
+            border-radius: 24px;
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        h1 {
+            color: #0f172a;
+            font-size: 2rem;
+            font-weight: 800;
+            margin: 0 0 10px 0;
+            letter-spacing: -0.025em;
+        }
+
+        .description {
+            color: #64748b;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            margin: 0 0 30px 0;
+        }
+
+        .form-group {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+
+        select {
+            width: 100%;
+            background-color: #f1f5f9;
+            color: #334155;
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        select:focus {
+            border-color: #38bdf8;
+            background-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+        }
+
+
+        .submit-btn {
+            width: 100%;
+            background-color: #0284c7;
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 700;
+            padding: 16px;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.2);
+        }
+
+        .submit-btn:hover {
+            background-color: #0369a1;
+            box-shadow: 0 10px 15px -3px rgba(2, 132, 199, 0.3);
+        }
+
+        .submit-btn:active {
+            transform: scale(0.98);
+        }
+
+
+        .status-bar {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+
+        .status-online {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #10b981;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+
+
+    <div class="clouds-container">
+        <div class="cloud cloud-1"></div>
+        <div class="cloud cloud-2"></div>
+        <div class="cloud cloud-3"></div>
+    </div>
+
+
+    <div class="main-card">
+        <header>
+            <h1>Климатический прогноз</h1>
+            <p class="description">
+                Web-сервис на базе FastAPI и ML-моделях Random Forest для прогнозирования климатических изменений города Ташкент.
+            </p>
+        </header>
+
+        <form action="/predict" method="post">
+            <div class="form-group">
+                <label for="daysParam">Горизонт прогноза (дней)</label>
+                <select id="daysParam" name="daysParam">
+                    <option value="14">14 дней (Две недели)</option>
+                    <option value="30" selected>30 дней (Месяц)</option>
+                    <option value="45">45 дней (Полтора месяца)</option>
+                </select>
+            </div>
+
+            <button type="submit" class="submit-btn">
+                Рассчитать прогноз
+            </button>
+        </form>
+
+
+</body>
+</html>
