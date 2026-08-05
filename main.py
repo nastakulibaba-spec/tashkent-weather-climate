@@ -22,49 +22,56 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 
-MODEL_URLS = {
-    "reg_temp_rf_model.pkl": "https://google.com",
-    "reg_precip_rf_model.pkl": "https://google.com",
-    "clf_anomaly_rf_model.pkl": "https://google.com"
-}
-
 models = {}
 day_profile = None
 df_historical = None
-
+MODEL_URLS = {
+    "reg_temp_rf_model.pkl": "https://google.com", 
+    "reg_precip_rf_model.pkl": "https://google.com", 
+    "clf_anomaly_rf_model.pkl": "https://google.com"
+}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Управляет жизненным циклом приложения и скачивает тяжелые модели."""
+    """Управляет жизненным циклом приложения и принудительно качает файлы моделей в облаке."""
     global day_profile, df_historical
     try:
-        # Автоматическое скачивание тяжелых моделей при первом запуске в облаке
-        for model_name, url in MODEL_URLS.items():
-            if not os.path.exists(model_name):
-                print(f"📥 Скачивание тяжелой модели {model_name}...")
-                urllib.request.urlretrieve(url, model_name)
-                print(f"✅ Файл {model_name} успешно сохранен на сервере.")
+        # Настройка кастомного сетевого агента, чтобы Google не блокировал частые запросы сервера
+        opener = urllib.request.build_opener()
+        opener.addheaders = [('User-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')]
+        urllib.request.install_opener(opener)
 
-        # Загрузка скачанных моделей в оперативную память
+        for model_name, url in MODEL_URLS.items():
+            # Если файл модели поврежден или весит подозрительно мало (меньше 10 КБ - значит скачался HTML-огрызок)
+            if not os.path.exists(model_name) or os.path.getsize(model_name) < 10240:
+                print(f"📥 Принудительное скачивание тяжелой модели: {model_name}...")
+                if os.path.exists(model_name):
+                    os.remove(model_name) # Удаляем старый битый файл, если он был
+                
+                urllib.request.urlretrieve(url, model_name)
+                print(f"✅ Файл {model_name} успешно скачан на диск хостинга. Размер: {os.path.getsize(model_name)} байт.")
+
+        # Загрузка весов моделей Scikit-learn в оперативную память
+        print("⚙️ Инициализация моделей в оперативную память...")
         models["reg_temp"] = joblib.load("reg_temp_rf_model.pkl")
         models["reg_precip"] = joblib.load("reg_precip_rf_model.pkl")
         models["clf_anomaly"] = joblib.load("clf_anomaly_rf_model.pkl")
-
-        # Загрузка исторического датасета (он легкий, зальем напрямую)
+        
+        # Загрузка исторического климатического датасета
         df_historical = pd.read_csv("tashkent_climate_features_ready.csv")
         df_historical["Date"] = pd.to_datetime(df_historical["Date"])
-
+        
+        # Расчет профиля дней года для инференса
         day_profile = (
             df_historical.groupby("DayOfYear")[["Humidity", "Wind_Speed"]]
             .median()
             .reset_index()
         )
-        print("🚀 Все модели и климатические профили успешно инициализированы.")
+        print("🚀 Все модели и климатические профили успешно загружены в память сервера!")
     except Exception as e:
-        print(f"❌ Ошибка инициализации: {e}")
+        print(f"❌ Критическая ошибка при инициализации lifespan: {str(e)}")
     yield
     models.clear()
-
 
 app = FastAPI(title="Tashkent Climate Predictor", lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
