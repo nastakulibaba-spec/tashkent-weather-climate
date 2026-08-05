@@ -240,8 +240,12 @@ async def download_report(days: int = 30):
 
 @app.get("/", response_class=HTMLResponse)
 async def get_dashboard(request: Request):
+    """Рендерит главную страницу дашборда при переходе на сайт."""
     if not models or df_historical is None:
-        raise HTTPException(status_code=503, detail="Модели не загружены на сервере.")
+        raise HTTPException(
+            status_code=503, 
+            detail="Сервер запущен, но ML-модели еще загружаются в память. Пожалуйста, обновите страницу через 10 секунд."
+        )
     return templates.TemplateResponse(request, "index.html", context={})
 
 
