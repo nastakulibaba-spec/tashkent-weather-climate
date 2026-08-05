@@ -26,9 +26,9 @@ models = {}
 day_profile = None
 df_historical = None
 MODEL_URLS = {
-    "reg_temp_rf_model.pkl": "https://google.com", 
-    "reg_precip_rf_model.pkl": "https://google.com", 
-    "clf_anomaly_rf_model.pkl": "https://google.com"
+    "reg_temp_rf_model.pkl": "https://drive.google.com/file/d/1IuT3nNpmRdbEx3M0CrrXZtnQW48sALJz/view", 
+    "reg_precip_rf_model.pkl": "https://drive.google.com/file/d/1ZG2U3n7PXXvRIm3Zo2kKg26LbV-au4jW/view?pli=1", 
+    "clf_anomaly_rf_model.pkl": "https://drive.google.com/file/d/1LzrkieSn-vMvvZGcnYTAoYr0Y7QodmOE/view"
 }
 
 @asynccontextmanager
