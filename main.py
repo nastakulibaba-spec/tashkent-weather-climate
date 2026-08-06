@@ -26,9 +26,9 @@ models = {}
 day_profile = None
 df_historical = None
 MODEL_URLS = {
-    "reg_temp_rf_model.pkl": "https://drive.google.com/file/d/1IuT3nNpmRdbEx3M0CrrXZtnQW48sALJz/view", 
-    "reg_precip_rf_model.pkl": "https://drive.google.com/file/d/1ZG2U3n7PXXvRIm3Zo2kKg26LbV-au4jW/view?pli=1", 
-    "clf_anomaly_rf_model.pkl": "https://drive.google.com/file/d/1LzrkieSn-vMvvZGcnYTAoYr0Y7QodmOE/view"
+    "reg_temp_rf_model.pkl": "https://www.dropbox.com/scl/fi/1qg6fc27jlt6a85q9920e/reg_temp_rf_model.pkl?rlkey=2s79p4syg2r55fkj13wsvow04&st=8pkttai4&dl=1", 
+    "reg_precip_rf_model.pkl": "https://www.dropbox.com/scl/fi/28zic07q1u15qebd955m3/reg_precip_rf_model.pkl?rlkey=9hrx25c3rbu3ps2uarwf5ak30&st=a6fnxo6i&dl=1", 
+    "clf_anomaly_rf_model.pkl": "https://www.dropbox.com/scl/fi/l4xjgu6q6claql92sanxr/clf_anomaly_rf_model.pkl?rlkey=4iobzbsbotkm2ibzbh1haaxsy&st=oaajocjm&dl=1"
 }
 
 @asynccontextmanager
