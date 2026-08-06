@@ -25,6 +25,7 @@ from fastapi.templating import Jinja2Templates
 models = {}
 day_profile = None
 df_historical = None
+LIFESPAN_ERROR = None  # Сюда запишется текст ошибки, если сервер упадет при старте
 MODEL_URLS = {
     "reg_temp_rf_model.pkl": "https://www.dropbox.com/scl/fi/1qg6fc27jlt6a85q9920e/reg_temp_rf_model.pkl?rlkey=2s79p4syg2r55fkj13wsvow04&st=8pkttai4&dl=1", 
     "reg_precip_rf_model.pkl": "https://www.dropbox.com/scl/fi/28zic07q1u15qebd955m3/reg_precip_rf_model.pkl?rlkey=9hrx25c3rbu3ps2uarwf5ak30&st=a6fnxo6i&dl=1", 
@@ -33,49 +34,75 @@ MODEL_URLS = {
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Управляет жизненным циклом приложения и принудительно качает файлы моделей в облаке."""
-    global day_profile, df_historical
+    """Управляет жизненным циклом приложения с логированием ошибок на экран."""
+    global day_profile, df_historical, LIFESPAN_ERROR
     try:
-        # Настройка кастомного сетевого агента, чтобы Google не блокировал частые запросы сервера
+        # Сетевые настройки для стабильного скачивания
         opener = urllib.request.build_opener()
         opener.addheaders = [('User-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')]
         urllib.request.install_opener(opener)
 
+        # Скачивание файлов моделей из Dropbox
         for model_name, url in MODEL_URLS.items():
-            # Если файл модели поврежден или весит подозрительно мало (меньше 10 КБ - значит скачался HTML-огрызок)
-            if not os.path.exists(model_name) or os.path.getsize(model_name) < 10240:
-                print(f"📥 Принудительное скачивание тяжелой модели: {model_name}...")
-                if os.path.exists(model_name):
-                    os.remove(model_name) # Удаляем старый битый файл, если он был
-                
+            if not os.path.exists(model_name):
+                print(f"📥 Скачивание модели из Dropbox: {model_name}...")
                 urllib.request.urlretrieve(url, model_name)
-                print(f"✅ Файл {model_name} успешно скачан на диск хостинга. Размер: {os.path.getsize(model_name)} байт.")
+                print(f"✅ Файл {model_name} успешно сохранен в облаке.")
 
-        # Загрузка весов моделей Scikit-learn в оперативную память
-        print("⚙️ Инициализация моделей в оперативную память...")
+        # Попытка загрузки весов Random Forest в оперативную память
         models["reg_temp"] = joblib.load("reg_temp_rf_model.pkl")
         models["reg_precip"] = joblib.load("reg_precip_rf_model.pkl")
         models["clf_anomaly"] = joblib.load("clf_anomaly_rf_model.pkl")
         
-        # Загрузка исторического климатического датасета
+        # Попытка чтения климатического датасета
         df_historical = pd.read_csv("tashkent_climate_features_ready.csv")
         df_historical["Date"] = pd.to_datetime(df_historical["Date"])
         
-        # Расчет профиля дней года для инференса
+        # Расчет медианного профиля года
         day_profile = (
             df_historical.groupby("DayOfYear")[["Humidity", "Wind_Speed"]]
             .median()
             .reset_index()
         )
-        print("🚀 Все модели и климатические профили успешно загружены в память сервера!")
+        print("🚀 Все компоненты успешно инициализированы в продакшн память.")
+        
     except Exception as e:
-        print(f"❌ Критическая ошибка при инициализации lifespan: {str(e)}")
+        # Ловим и сохраняем точный текст ошибки Python
+        LIFESPAN_ERROR = str(e)
+        print(f"❌ КРИТИЧЕСКАЯ ОШИБКА ПРИ СТАРТЕ СЕРВЕРА: {LIFESPAN_ERROR}")
     yield
     models.clear()
+
 
 app = FastAPI(title="Tashkent Climate Predictor", lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
 
+
+@app.get("/", response_class=HTMLResponse)
+async def get_dashboard(request: Request):
+    """Отображает интерфейс или выводит точный текст ошибки на экран."""
+    global LIFESPAN_ERROR
+    
+    # Страховка 1: Если в коде инициализации произошел сбой, выводим ошибку на экран
+    if LIFESPAN_ERROR is not None:
+         return HTMLResponse(
+             content=f"<div style='font-family:Arial;padding:30px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;max-width:700px;margin:50px auto;'>"
+                     f"<h2 style='color:#dc2626;margin-top:0;'>❌ Ошибка инициализации Python (lifespan):</h2>"
+                     f"<p style='color:#7f1d1d;font-weight:bold;background:#fff;padding:15px;border-radius:4px;border:1px solid #fee2e2;'>{LIFESPAN_ERROR}</p>"
+                     f"<p style='color:#4b5563;font-size:14px;'>Проверьте правильность ссылок на модели и наличие файла tashkent_climate_features_ready.csv в репозитории.</p>"
+                     f"</div>", 
+             status_code=500
+         )
+         
+    # Страховка 2: Если ошибки нет, но файлы еще качаются по сети
+    if not models or df_historical is None:
+        return HTMLResponse(
+            content="<h3 style='font-family:Arial;color:#2563eb;text-align:center;margin-top:100px;'>⏳ Идет скачивание тяжелых ML-моделей из Dropbox в память сервера... Пожалуйста, подождите 30 секунд и обновите страницу.</h3>",
+            status_code=503
+        )
+        
+    # Если всё прошло успешно, открываем дашборд
+    return templates.TemplateResponse(request, "index.html", context={})
 def generate_accurate_summer_forecast(df_historical, reg_temp, reg_precip, clf_anomaly, day_profile,
                                       days_to_forecast=30):
 
