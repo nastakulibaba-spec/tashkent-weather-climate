@@ -181,18 +181,31 @@ def generate_accurate_summer_forecast(df_historical, reg_temp, reg_precip, clf_a
 async def download_report(days: int = 30):
     if not models or df_historical is None:
         raise HTTPException(status_code=503, detail="Модели не загружены.")
-
+  # --- НАДЕЖНАЯ РЕГИСТРАЦИЯ КИРИЛЛИЧЕСКИХ ШРИФТОВ ---
     try:
-      try:
-        # Указываем относительные пути. Файлы arial.ttf и arialbd.ttf будут браться прямо из корня проекта на GitHub
+        # Указываем относительные пути. Файлы arial.ttf и arialbd.ttf будут браться из корня проекта на GitHub
         font_path = 'arial.ttf'
         font_bd_path = 'arialbd.ttf'
 
-        pdfmetrics.registerFont(TTFont('Arial-Regular', font_path))
-        pdfmetrics.registerFont(TTFont('Arial-Bold', font_bd_path))
-        print("✅ Кириллические шрифты Arial успешно зарегистрированы в ReportLab.")
+        # Проверяем, загрузили ли вы файлы шрифтов на GitHub
+        if os.path.exists(font_path) and os.path.exists(font_bd_path):
+            pdfmetrics.registerFont(TTFont('Arial-Regular', font_path))
+            pdfmetrics.registerFont(TTFont('Arial-Bold', font_bd_path))
+            print("✅ Кириллические шрифты Arial успешно зарегистрированы из репозитория.")
+        else:
+            # Резервный вариант: если файлов arial на GitHub нет, используем встроенную Helvetica, чтобы код не падал
+            print("⚠️ Файлы arial.ttf не найдены в корне. Переключение на стандартный шрифт Helvetica.")
+            pdfmetrics.registerFont(TTFont('Arial-Regular', 'Helvetica'))
+            pdfmetrics.registerFont(TTFont('Arial-Bold', 'Helvetica-Bold'))
+            
     except Exception as e:
-        print(f"❌ Ошибка регистрации локальных шрифтов: {str(e)}")
+        print(f"❌ Ошибка в блоке регистрации шрифтов: {str(e)}")
+        # Аварийная страховка, чтобы сервер запустился в любом случае
+        try:
+            pdfmetrics.registerFont(TTFont('Arial-Regular', 'Helvetica'))
+            pdfmetrics.registerFont(TTFont('Arial-Bold', 'Helvetica-Bold'))
+        except:
+            pass
         styles['Normal'].fontName = 'Arial-Regular'
         styles['Heading1'].fontName = 'Arial-Bold'
         forecast_data = generate_accurate_summer_forecast(
