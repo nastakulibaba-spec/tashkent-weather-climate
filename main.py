@@ -183,12 +183,18 @@ async def download_report(days: int = 30):
         raise HTTPException(status_code=503, detail="Модели не загружены.")
 
     try:
-        font_path = os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts', 'arial.ttf')
-        font_bd_path = os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts', 'arialbd.ttf')
+      try:
+        # Указываем относительные пути. Файлы arial.ttf и arialbd.ttf будут браться прямо из корня проекта на GitHub
+        font_path = 'arial.ttf'
+        font_bd_path = 'arialbd.ttf'
 
         pdfmetrics.registerFont(TTFont('Arial-Regular', font_path))
         pdfmetrics.registerFont(TTFont('Arial-Bold', font_bd_path))
-
+        print("✅ Кириллические шрифты Arial успешно зарегистрированы в ReportLab.")
+    except Exception as e:
+        print(f"❌ Ошибка регистрации локальных шрифтов: {str(e)}")
+        styles['Normal'].fontName = 'Arial-Regular'
+        styles['Heading1'].fontName = 'Arial-Bold'
         forecast_data = generate_accurate_summer_forecast(
             df_historical=df_historical,
             reg_temp=models["reg_temp"],
