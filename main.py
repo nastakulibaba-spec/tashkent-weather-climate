@@ -182,25 +182,22 @@ async def download_report(days: int = 30):
     if not models or df_historical is None:
         raise HTTPException(status_code=503, detail="Модели не загружены.")
   # --- НАДЕЖНАЯ РЕГИСТРАЦИЯ КИРИЛЛИЧЕСКИХ ШРИФТОВ ---
-    try:
-        # Указываем относительные пути. Файлы arial.ttf и arialbd.ttf будут браться из корня проекта на GitHub
-        font_path = 'arial.ttf'
-        font_bd_path = 'arialbd.ttf'
+     try:
+        # ИСПРАВЛЕНИЕ: Переводим имена файлов в ЗАГЛАВНЫЙ регистр строго под Linux-сервер Render
+        font_path = 'ARIAL.TTF'
+        font_bd_path = 'ARIALBD.TTF'
 
-        # Проверяем, загрузили ли вы файлы шрифтов на GitHub
         if os.path.exists(font_path) and os.path.exists(font_bd_path):
             pdfmetrics.registerFont(TTFont('Arial-Regular', font_path))
             pdfmetrics.registerFont(TTFont('Arial-Bold', font_bd_path))
-            print("✅ Кириллические шрифты Arial успешно зарегистрированы из репозитория.")
+            print("✅ Кириллические шрифты ARIAL успешно зарегистрированы из репозитория.")
         else:
-            # Резервный вариант: если файлов arial на GitHub нет, используем встроенную Helvetica, чтобы код не падал
-            print("⚠️ Файлы arial.ttf не найдены в корне. Переключение на стандартный шрифт Helvetica.")
+            print("⚠️ Файлы ARIAL.TTF не найдены в корне. Переключение на стандартный шрифт Helvetica.")
             pdfmetrics.registerFont(TTFont('Arial-Regular', 'Helvetica'))
             pdfmetrics.registerFont(TTFont('Arial-Bold', 'Helvetica-Bold'))
             
     except Exception as e:
         print(f"❌ Ошибка в блоке регистрации шрифтов: {str(e)}")
-        # Аварийная страховка, чтобы сервер запустился в любом случае
         try:
             pdfmetrics.registerFont(TTFont('Arial-Regular', 'Helvetica'))
             pdfmetrics.registerFont(TTFont('Arial-Bold', 'Helvetica-Bold'))
