@@ -175,26 +175,45 @@ def generate_accurate_summer_forecast(df_historical, reg_temp, reg_precip, clf_a
         })
 
     return forecast_records
-from reportlab.lib.styles import getSampleStyleSheet
-@app.get("/api/download_report")
-async def download_report(days: int = 30):
-    if not models or df_historical is None:
-        raise HTTPException(status_code=503, detail="Модели не загружены.")
-     try:
+
+@app.get("/download_pdf")  # или post, оставьте ваш оригинальный роут
+async def download_report(request: Request):
+    # 1. ШАГ ПЕРВЫЙ: Принудительно создаем глобальные стили ReportLab
+    # Эта строчка ОБЯЗАТЕЛЬНО должна стоять в самом верху, ДО любого использования словаря styles!
+    styles = getSampleStyleSheet()
+
+    # 2. ШАГ ВТОРОЙ: Регистрируем шрифты ARIAL.TTF из корня GitHub под Linux
+    try:
         font_path = 'ARIAL.TTF'
         font_bd_path = 'ARIALBD.TTF'
-        styles = getSampleStyleSheet()
-        styles['Normal'].fontName = 'Arial-Regular'
-        styles['Heading1'].fontName = 'Arial-Bold'
+
         if os.path.exists(font_path) and os.path.exists(font_bd_path):
             pdfmetrics.registerFont(TTFont('Arial-Regular', font_path))
             pdfmetrics.registerFont(TTFont('Arial-Bold', font_bd_path))
-         
-            print("✅ Кириллические шрифты ARIAL успешно зарегистрированы из репозитория.")
+            print("✅ Кириллические шрифты Arial успешно привязаны.")
         else:
-            print("⚠️ Файлы ARIAL.TTF не найдены в корне. Переключение на стандартный шрифт Helvetica.")
+            print("⚠️ Шрифты не найдены, аварийное переключение на Helvetica.")
             pdfmetrics.registerFont(TTFont('Arial-Regular', 'Helvetica'))
             pdfmetrics.registerFont(TTFont('Arial-Bold', 'Helvetica-Bold'))
+    except Exception as e:
+        print(f"Ошибка шрифтов: {str(e)}")
+        # Если регистрация упала, подменяем имена на стандартные, чтобы код ниже не падал
+        pdfmetrics.registerFont(TTFont('Arial-Regular', 'Helvetica'))
+        pdfmetrics.registerFont(TTFont('Arial-Bold', 'Helvetica-Bold'))
+
+    # 3. ШАГ ТРЕТИЙ: Безопасно переназначаем шрифты для стилей текста
+    # Теперь styles['Normal'] гарантированно сработает, так как styles был создан на Шаге 1!
+    styles['Normal'].fontName = 'Arial-Regular'
+    styles['Heading1'].fontName = 'Arial-Bold'
+    
+    if 'Title' in styles: 
+        styles['Title'].fontName = 'Arial-Bold'
+    if 'BodyText' in styles: 
+        styles['BodyText'].fontName = 'Arial-Regular'
+
+    # --- ЗДЕСЬ ПРОДОЛЖАЕТСЯ ВЕСЬ ВАШ ОСТАЛЬНОЙ КОД СОЗДАНИЯ PDF ДОКУМЕНТА ---
+    # doc = SimpleDocTemplate(...) и так далее
+
             
     except Exception as e:
         print(f"❌ Ошибка в блоке регистрации шрифтов: {str(e)}")
