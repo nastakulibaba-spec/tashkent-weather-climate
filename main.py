@@ -175,7 +175,7 @@ def generate_accurate_summer_forecast(df_historical, reg_temp, reg_precip, clf_a
         })
 
     return forecast_records
-
+from reportlab.lib.styles import getSampleStyleSheet
 @app.get("/api/download_report")
 async def download_report(days: int = 30):
     if not models or df_historical is None:
@@ -183,7 +183,9 @@ async def download_report(days: int = 30):
      try:
         font_path = 'ARIAL.TTF'
         font_bd_path = 'ARIALBD.TTF'
-        
+        styles = getSampleStyleSheet()
+        styles['Normal'].fontName = 'Arial-Regular'
+        styles['Heading1'].fontName = 'Arial-Bold'
         if os.path.exists(font_path) and os.path.exists(font_bd_path):
             pdfmetrics.registerFont(TTFont('Arial-Regular', font_path))
             pdfmetrics.registerFont(TTFont('Arial-Bold', font_bd_path))
