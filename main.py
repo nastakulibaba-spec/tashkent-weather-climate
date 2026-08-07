@@ -176,20 +176,20 @@ def generate_accurate_summer_forecast(df_historical, reg_temp, reg_precip, clf_a
 
     return forecast_records
 
-
+from reportlab.lib.styles import getSampleStyleSheet
 @app.get("/api/download_report")
 async def download_report(days: int = 30):
     if not models or df_historical is None:
         raise HTTPException(status_code=503, detail="Модели не загружены.")
-  # --- НАДЕЖНАЯ РЕГИСТРАЦИЯ КИРИЛЛИЧЕСКИХ ШРИФТОВ ---
      try:
-        # ИСПРАВЛЕНИЕ: Переводим имена файлов в ЗАГЛАВНЫЙ регистр строго под Linux-сервер Render
         font_path = 'ARIAL.TTF'
         font_bd_path = 'ARIALBD.TTF'
-
+        styles = getSampleStyleSheet()
         if os.path.exists(font_path) and os.path.exists(font_bd_path):
             pdfmetrics.registerFont(TTFont('Arial-Regular', font_path))
             pdfmetrics.registerFont(TTFont('Arial-Bold', font_bd_path))
+             styles['Normal'].fontName = 'Arial-Regular'
+             styles['Heading1'].fontName = 'Arial-Bold'
             print("✅ Кириллические шрифты ARIAL успешно зарегистрированы из репозитория.")
         else:
             print("⚠️ Файлы ARIAL.TTF не найдены в корне. Переключение на стандартный шрифт Helvetica.")
@@ -203,8 +203,7 @@ async def download_report(days: int = 30):
             pdfmetrics.registerFont(TTFont('Arial-Bold', 'Helvetica-Bold'))
         except:
             pass
-        styles['Normal'].fontName = 'Arial-Regular'
-        styles['Heading1'].fontName = 'Arial-Bold'
+        
         forecast_data = generate_accurate_summer_forecast(
             df_historical=df_historical,
             reg_temp=models["reg_temp"],
