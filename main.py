@@ -177,6 +177,94 @@ def generate_accurate_summer_forecast(df_historical, reg_temp, reg_precip, clf_a
     return forecast_records
 
 
+@app.get("/api/download_report")
+async def download_report(days: int = 30):
+    if not models or df_historical is None:
+        raise HTTPException(status_code=503, detail="Модели не загружены.")
+
+    try:
+        font_path = os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts', 'ARIAL.ttf')
+        font_bd_path = os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts', 'ARIALBD.ttf')
+
+        pdfmetrics.registerFont(TTFont('Arial-Regular', font_path))
+        pdfmetrics.registerFont(TTFont('Arial-Bold', font_bd_path))
+
+        forecast_data = generate_accurate_summer_forecast(
+            df_historical=df_historical,
+            reg_temp=models["reg_temp"],
+            reg_precip=models["reg_precip"],
+            clf_anomaly=models["clf_anomaly"],
+            day_profile=day_profile,
+            days_to_forecast=days
+        )
+
+        anomalies_count = sum(1 for item in forecast_data if item["is_anomaly"] == 1)
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+        story = []
+
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'TitleStyle',
+            fontName='Arial-Bold',
+            fontSize=16,
+            spaceAfter=15,
+            textColor=colors.HexColor('#1a365d'),
+            alignment=1
+        )
+        subtitle_style = ParagraphStyle('SubTitleStyle', fontName='Arial-Regular', fontSize=10, textColor=colors.gray,
+                                        spaceAfter=20, alignment=1)
+        h2_style = ParagraphStyle('H2Style', fontName='Arial-Bold', fontSize=13, spaceBefore=15, spaceAfter=10,
+                                  textColor=colors.HexColor('#2c5282'))
+        text_style = ParagraphStyle('TextStyle', fontName='Arial-Regular', fontSize=11, leading=15, spaceAfter=8)
+
+        story.append(Paragraph("ОТЧЕТ ПО РЕЗУЛЬТАТАМ КЛИМАТИЧЕСКОГО ИНФЕРЕНСА", title_style))
+        story.append(Paragraph(f"Горизонт прогнозирования: {days} дней. Город: Ташкент.", subtitle_style))
+        story.append(Spacer(1, 10))
+
+        story.append(Paragraph("1. Сводные результаты симуляции", h2_style))
+        summary_text = f"За расчетный период в <font fontName='Arial-Bold'>{days} дней</font> математическими моделями Случайного Леса (Random Forest) было идентифицировано <font fontName='Arial-Bold'>{anomalies_count}</font> критических климатических аномалий (волн экстремальной жары или засушливых периодов)."
+        story.append(Paragraph(summary_text, text_style))
+        story.append(Spacer(1, 10))
+
+        story.append(Paragraph("2. Статистические метрики точности прогнозных ядер", h2_style))
+
+        def wrap_p(txt, is_bold=False):
+            f_name = 'Arial-Bold' if is_bold else 'Arial-Regular'
+            return Paragraph(f"<font fontName='{f_name}'>{txt}</font>", styles['Normal'])
+
+        metrics_data = [
+            [wrap_p('Целевой показатель', True), wrap_p('Метрика MAE', True), wrap_p('Метрика R-squared', True),
+             wrap_p('Качественная оценка', True)],
+            [wrap_p('Макс. температура'), wrap_p('1.65 °C'), wrap_p('0.9681'), wrap_p('Высокое качество (96.8%)')],
+            [wrap_p('Атмосферные осадки'), wrap_p('0.97 мм'), wrap_p('0.4307'), wrap_p('Адекватная метео-норма')],
+            [wrap_p('Классификатор рисков'), wrap_p('ROC-AUC: 0.9969'), wrap_p('Precision: 0.96'),
+             wrap_p('Recall: 0.86')]
+        ]
+
+        t = Table(metrics_data, colWidths=[130, 100, 110, 180])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2b6cb0')),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f7fafc')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ]))
+        story.append(t)
+
+        doc.build(story)
+        buffer.seek(0)
+
+        return StreamingResponse(
+            buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=Climate_Report_{days}d.pdf"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка генерации PDF: {str(e)}")
+
 @app.get("/", response_class=HTMLResponse)
 async def get_dashboard(request: Request):
     """Рендерит главную страницу дашборда при переходе на сайт."""
