@@ -176,21 +176,24 @@ def generate_accurate_summer_forecast(df_historical, reg_temp, reg_precip, clf_a
 
     return forecast_records
 
-@app.get("/download_pdf")  # или post, оставьте ваш оригинальный роут
+@app.get("/download_pdf")
 async def download_report(request: Request):
-    # 1. ШАГ ПЕРВЫЙ: Принудительно создаем глобальные стили ReportLab
-    # Эта строчка ОБЯЗАТЕЛЬНО должна стоять в самом верху, ДО любого использования словаря styles!
-    styles = getSampleStyleSheet()
+    # Переименовали во встроенное имя pdf_styles, и конфликт внизу функции исчез!
+    pdf_styles = getSampleStyleSheet()
 
-    # 2. ШАГ ВТОРОЙ: Регистрируем шрифты ARIAL.TTF из корня GitHub под Linux
-    try:
-        font_path = 'ARIAL.TTF'
-        font_bd_path = 'ARIALBD.TTF'
+    # ... (Блок try-except для шрифтов оставляем как есть) ...
 
-        if os.path.exists(font_path) and os.path.exists(font_bd_path):
-            pdfmetrics.registerFont(TTFont('Arial-Regular', font_path))
-            pdfmetrics.registerFont(TTFont('Arial-Bold', font_bd_path))
-            print("✅ Кириллические шрифты Arial успешно привязаны.")
+    # Назначаем шрифты через новое имя:
+    pdf_styles['Normal'].fontName = 'Arial-Regular'
+    pdf_styles['Heading1'].fontName = 'Arial-Bold'
+    
+    if 'Title' in pdf_styles: 
+        pdf_styles['Title'].fontName = 'Arial-Bold'
+    if 'BodyText' in pdf_styles: 
+        pdf_styles['BodyText'].fontName = 'Arial-Regular'
+
+    # Передавайте в ваши Paragraph(текст, pdf_styles['Normal']) новое имя!
+
         else:
             print("⚠️ Шрифты не найдены, аварийное переключение на Helvetica.")
             pdfmetrics.registerFont(TTFont('Arial-Regular', 'Helvetica'))
@@ -215,13 +218,6 @@ async def download_report(request: Request):
     # doc = SimpleDocTemplate(...) и так далее
 
             
-    except Exception as e:
-        print(f"❌ Ошибка в блоке регистрации шрифтов: {str(e)}")
-        try:
-            pdfmetrics.registerFont(TTFont('Arial-Regular', 'Helvetica'))
-            pdfmetrics.registerFont(TTFont('Arial-Bold', 'Helvetica-Bold'))
-        except:
-            pass
         
         forecast_data = generate_accurate_summer_forecast(
             df_historical=df_historical,
@@ -238,7 +234,6 @@ async def download_report(request: Request):
         doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
         story = []
 
-        styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
             'TitleStyle',
             fontName='Arial-Bold',
@@ -276,8 +271,32 @@ async def download_report(request: Request):
             [wrap_p('Классификатор рисков'), wrap_p('ROC-AUC: 0.9969'), wrap_p('Precision: 0.96'),
              wrap_p('Recall: 0.86')]
         ]
+        # --- ИСПРАВЛЕННЫЙ БЛОК ОБРАБОТКИ ТАБЛИЦЫ ---
+        
+        # Шаг 1. Принудительно оборачиваем весь текст ячеек в Paragraph с поддержкой Arial
+        formatted_metrics_data = []
+        for row_idx, row in enumerate(metrics_data):
+            formatted_row = []
+            for col_idx, cell in enumerate(row):
+                # Для первой строки (шапки) используем жирный шрифт, для остальных — обычный
+                current_font = 'Arial-Bold' if row_idx == 0 else 'Arial-Regular'
+                current_color = colors.white if row_idx == 0 else colors.black
+                
+                # Создаем временный уникальный стиль для ячейки
+                cell_style = ParagraphStyle(
+                    'CellStyle',
+                    parent=styles['Normal'],
+                    fontName=current_font,
+                    fontSize=10,
+                    textColor=current_color,
+                    alignment=1 # По центру
+                )
+                # Оборачиваем текст в Paragraph
+                formatted_row.append(Paragraph(str(cell), cell_style))
+            formatted_metrics_data.append(formatted_row)
 
-        t = Table(metrics_data, colWidths=[130, 100, 110, 180])
+        # Шаг 2. Строим таблицу на основе подготовленных текстовых абзацев
+        t = Table(formatted_metrics_data, colWidths=[130, 100, 110, 180])
         t.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2b6cb0')),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -288,16 +307,19 @@ async def download_report(request: Request):
         ]))
         story.append(t)
 
+        # Шаг 3. Финальная сборка документа
         doc.build(story)
         buffer.seek(0)
+
 
         return StreamingResponse(
             buffer,
             media_type="application/pdf",
             headers={"Content-Disposition": f"attachment; filename=Climate_Report_{days}d.pdf"}
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ошибка генерации PDF: {str(e)}")
+  except Exception as err: # <-- ИСПРАВЛЕНО
+    return HTMLResponse(content=f"Ошибка генерации PDF: {str(err)}", status_code=500)
+
 
 @app.get("/", response_class=HTMLResponse)
 async def get_dashboard(request: Request):
