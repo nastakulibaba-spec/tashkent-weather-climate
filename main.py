@@ -183,8 +183,7 @@ async def download_report(days: int = 30):
         raise HTTPException(status_code=503, detail="Модели не загружены.")
 
     try:
-        font_path = os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts', 'ARIAL.TTF')
-        font_bd_path = os.path.join(os.environ.get('WINDIR', 'C:\\Windows'), 'Fonts', 'ARIALBD.TTF')
+        font_path, font_bd_path = 'ARIAL.TTF', 'ARIALBD.TTF'
 
         pdfmetrics.registerFont(TTFont('Arial-Regular', font_path))
         pdfmetrics.registerFont(TTFont('Arial-Bold', font_bd_path))
